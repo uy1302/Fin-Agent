@@ -1,0 +1,11 @@
+beautifulsoup4==4.13.3
+faiss-cpu==1.10.0
+langchain-google-vertexai==2.0.18
+langgraph-prebuilt==0.1.7
+sentence-transformers==4.0.1
+pymongo==4.11.3
+pyparsing==3.2.3
+vnai==2.0.2
+vnstock==3.2.3
+numpy==2.2.4
+python-dotenv==1.1.0
