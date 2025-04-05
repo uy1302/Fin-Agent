@@ -42,11 +42,29 @@ def clean_html(html_content):
         tag.decompose()
     return soup.get_text(separator=" ", strip=True)
 
+def extract_article_content(html_content):
+    soup = BeautifulSoup(html_content, "html.parser")
+    
+    article_body = soup.find("div", class_="article__body cms-body")
+    if not article_body:
+        return clean_html(html_content)  
+    
+    for ads in article_body.select("div.ads_middle"):
+        ads.decompose()
+    
+    for script in article_body.find_all("script"):
+        script.decompose()
+    
+    paragraphs = article_body.find_all("p")
+    content = "\n\n".join([p.get_text(strip=True) for p in paragraphs])
+    
+    return content
+
 def get_web_content(url):
     try:
         r = requests.get(url, timeout=10)
         r.raise_for_status()
-        return clean_html(r.text)
+        return extract_article_content(r.text)
     except Exception:
         return ""
 
@@ -55,16 +73,34 @@ def get_article_details(article_url, headers, model):
         r = requests.get(article_url, headers=headers)
         r.encoding = "utf-8"
         soup = BeautifulSoup(r.text, "html.parser")
-        desc_tag = (soup.find("p", class_="sapo") or soup.find("div", class_="article__sapo") or 
-                    soup.find("div", class_="sapo") or soup.find("meta", {"name": "description"}) or 
+        
+        desc_tag = (soup.find("meta", {"name": "description"}) or 
                     soup.find("meta", {"property": "og:description"}))
-        description = (desc_tag.get("content", "").strip() if desc_tag and desc_tag.name=="meta" 
-                       else desc_tag.get_text(strip=True)) if desc_tag else "Không có mô tả"
-        if description=="Không có mô tả":
-            first_p = soup.select_one("div.detail-content p")
-            if first_p:
-                description = first_p.get_text(strip=True)
+        if desc_tag:
+            description = desc_tag.get("content", "").strip()
+        else:
+            desc_tag = (soup.find("p", class_="sapo") or soup.find("div", class_="article__sapo") or 
+                       soup.find("div", class_="sapo"))
+            description = desc_tag.get_text(strip=True) if desc_tag else ""
+            
+        if not description:
+            article_body = soup.find("div", class_="article__body cms-body")
+            if article_body:
+                first_p = article_body.find("p")
+                if first_p:
+                    description = first_p.get_text(strip=True)
+                else:
+                    full_content = extract_article_content(r.text)
+                    description = full_content[:500] if full_content else "Không có mô tả"
+            else:
+                first_p = soup.select_one("div.detail-content p")
+                if first_p:
+                    description = first_p.get_text(strip=True)
+                else:
+                    description = "Không có mô tả"
+        
         embedding = model.encode(description).tolist() if description else []
+        
         time_tag = soup.find("span", class_="time") or soup.find("div", class_="time") or soup.find("span", class_="date")
         time_ago = soup.find("span", class_="time-ago")
         meta_time = soup.find("meta", {"property": "article:published_time"})
@@ -76,33 +112,25 @@ def get_article_details(article_url, headers, model):
             post_time = parse_relative_time(time_tag.get_text(strip=True))
         else:
             post_time = time.time()
-        return description, post_time, embedding
+            
+        article_content = extract_article_content(r.text)
+        
+        return description, post_time, embedding, article_content
     except Exception as e:
         logging.error(f"Error processing {article_url}: {e}")
-        return "Không có mô tả", time.time(), []
+        return "Không có mô tả", time.time(), [], ""
 
 def extract_tickers(article_text):
     with open("vnstock.json", "r", encoding="utf-8") as f:
         ticker_dict = json.load(f)
-    tickers = list(ticker_dict.keys())
+    
     found = {t for t in ticker_dict if re.search(rf'\b{re.escape(t)}\b', article_text)}
-    if found:
-        return list(found)
+    
     for t, name in ticker_dict.items():
         if name and name in article_text:
             found.add(t)
-    if found:
-        return list(found)
-    model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
-    company_names = [name for name in ticker_dict.values() if name]
-    company_vectors = model.encode(company_names, convert_to_numpy=True)
-    index = faiss.IndexFlatL2(company_vectors.shape[1])
-    index.add(company_vectors)
-    article_vector = model.encode([article_text], convert_to_numpy=True)
-    distances, indices = index.search(article_vector, 1)
-    if distances[0][0] < 1.0:
-        return [tickers[indices[0][0]]]
-    return []
+    
+    return list(found) if found else []
 
 def crawl_news_urls(sites, model, db, config_collection):
     headers = {"User-Agent": "Mozilla/5.0"}
@@ -124,11 +152,12 @@ def crawl_news_urls(sites, model, db, config_collection):
                     if not href or not title:
                         continue
                     full_url = get_full_url(site["url"], href)
-                    description, post_time, embedding = get_article_details(full_url, headers, model)
+                    description, post_time, embedding, article_content = get_article_details(full_url, headers, model)
                     if post_time <= last_update:
                         continue
-                    article_text = get_web_content(full_url)
-                    tickers_extracted = extract_tickers(article_text) if article_text else []
+                    
+                    tickers_extracted = extract_tickers(article_content) if article_content else []
+                    
                     news_data = {
                         "title": title,
                         "full_url": full_url,
@@ -138,6 +167,7 @@ def crawl_news_urls(sites, model, db, config_collection):
                         "embedding": embedding,
                         "tickers": tickers_extracted
                     }
+                    
                     if not collection.find_one({"full_url": news_data["full_url"]}):
                         collection.insert_one(news_data)
                         logging.info(f"Added: {news_data['title']} to {domain}")
