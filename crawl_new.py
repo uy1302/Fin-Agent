@@ -168,7 +168,7 @@ def crawl_news_urls(sites, model, db, config_collection):
                         "tickers": tickers_extracted
                     }
                     
-                    if not collection.find_one({"full_url": news_data["full_url"]}):
+                    if not collection.find_one({"full_url": news_data["full_url"]}) and tickers_extracted:
                         collection.insert_one(news_data)
                         logging.info(f"Added: {news_data['title']} to {domain}")
                     max_post = max(max_post, post_time)
