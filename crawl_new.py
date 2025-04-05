@@ -199,9 +199,4 @@ def main():
         time.sleep(3600)
 
 if __name__ == "__main__":
-    # main()
-    d, p ,e, a = get_article_details("https://vnexpress.net/he-thong-giao-dich-chung-khoan-moi-du-kien-chay-tu-5-5-4869195.html", {}, SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2"))
-    print(a)
-    print(d)
-    print(p)
-    print(extract_tickers(a))
+    main()
