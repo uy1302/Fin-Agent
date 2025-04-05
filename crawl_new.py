@@ -45,7 +45,7 @@ def clean_html(html_content):
 def extract_article_content(html_content):
     soup = BeautifulSoup(html_content, "html.parser")
     
-    article_body = soup.find("div", class_="article__body cms-body")
+    article_body = soup.find("div", class_="article__body cms-body") or soup.find("div", class_="w640 fr clear")
     if not article_body:
         return clean_html(html_content)  
     
@@ -199,4 +199,9 @@ def main():
         time.sleep(3600)
 
 if __name__ == "__main__":
-    main()
+    # main()
+    d, p ,e, a = get_article_details("https://vnexpress.net/he-thong-giao-dich-chung-khoan-moi-du-kien-chay-tu-5-5-4869195.html", {}, SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2"))
+    print(a)
+    print(d)
+    print(p)
+    print(extract_tickers(a))
