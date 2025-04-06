@@ -180,7 +180,8 @@ Hãy phân tích các yếu tố sau (nếu có trong bài báo):
 
 Đưa ra nhận định ngắn gọn trong 2-3 câu, tập trung vào thông tin quan trọng nhất liên quan đến mã {ticker} và ý nghĩa đối với nhà đầu tư. Nếu bài báo không có thông tin đủ để phân tích, hãy trả về "Không đủ thông tin để phân tích".
 
-Nhận định:"""
+Nhận định:
+Không dùng định dạng markdown hoặc in đậm"""
     )
     
     try:
@@ -204,11 +205,9 @@ Nhận định:"""
 @lru_cache(maxsize=500)
 def generate_investment_recommendation(article_content, ticker):
     """Generate investment recommendation based on article content"""
-    # Only generate recommendation if we have substantial content
     if not article_content or len(article_content) < 300:
         return None
     
-    # Truncate very long texts to save tokens
     text_to_analyze = article_content[:3500] if len(article_content) > 3500 else article_content
     
     recommendation_prompt = PromptTemplate.from_template(
@@ -232,17 +231,18 @@ Hãy đánh giá các yếu tố sau (nếu có trong bài báo):
 
 Nếu bài báo không có đủ thông tin để đưa ra khuyến nghị, hãy trả về "Không đủ thông tin để đưa ra khuyến nghị".
 
-Khuyến nghị:"""
+Khuyến nghị:
+Không dùng định dạng markdown hoặc in đậm"""
+
     )
     
     try:
-        with llm_lock:  # Use lock to prevent concurrent API calls
+        with llm_lock:  
             chain = recommendation_prompt | llm
             response = chain.invoke({"ticker": ticker, "content": text_to_analyze})
         
         recommendation = response.content.strip()
         
-        # Check if the recommendation is meaningful
         if "không đủ thông tin" in recommendation.lower():
             return None
         
@@ -279,17 +279,17 @@ Hãy trích xuất các thông tin sau (nếu có trong bài báo):
 
 Trả về dưới dạng danh sách các chỉ số với giá trị và thời kỳ tương ứng. Nếu không tìm thấy thông tin, hãy trả về "Không tìm thấy chỉ số tài chính trong bài báo".
 
-Các chỉ số:"""
+Các chỉ số:
+Không dùng định dạng markdown hoặc in đậm"""
     )
     
     try:
-        with llm_lock:  # Use lock to prevent concurrent API calls
+        with llm_lock:  
             chain = metrics_prompt | llm
             response = chain.invoke({"ticker": ticker, "content": text_to_analyze})
         
         metrics = response.content.strip()
         
-        # Check if any metrics were found
         if "không tìm thấy" in metrics.lower():
             return None
         
@@ -301,7 +301,6 @@ Các chỉ số:"""
 @lru_cache(maxsize=500)
 def summarize_text(text):
     """Summarize text in one sentence with caching"""
-    # Truncate very long texts to save tokens
     text_to_summarize = text[:1500] if len(text) > 1500 else text
     
     summarize_prompt = PromptTemplate.from_template(
