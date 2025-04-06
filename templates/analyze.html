@@ -1,0 +1,411 @@
+{% extends "base.html" %}
+
+{% block title %}Phân Tích Cổ Phiếu {{ ticker }} - Phân Tích Cổ Phiếu Việt Nam{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-8">
+        <h2 class="mb-3">Phân Tích Cổ Phiếu <span class="badge bg-primary">{{ ticker }}</span></h2>
+    </div>
+    <div class="col-md-4">
+        <form action="/analyze" method="get" class="d-flex">
+            <div class="input-group">
+                <input type="text" class="form-control" name="ticker" placeholder="Nhập mã cổ phiếu" value="{{ ticker }}" required>
+                <button class="btn btn-primary" type="submit">
+                    <i class="fas fa-search"></i>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% if error %}
+<div class="alert alert-danger">
+    {{ error }}
+</div>
+{% else %}
+
+<!-- Sentiment Chart Section -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-chart-line me-2"></i>Biểu Đồ Cảm Xúc Theo Thời Gian
+            </div>
+            <div class="card-body chart-container">
+                {% if chart_data %}
+                    <img src="data:image/png;base64,{{ chart_data }}" class="img-fluid" alt="Biểu đồ cảm xúc {{ ticker }}">
+                {% elif chart_error %}
+                    <div class="alert alert-warning">
+                        {{ chart_error }}
+                    </div>
+                {% else %}
+                    <div class="loader"></div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Sentiment Distribution and Related Tickers -->
+<div class="row mb-4">
+    <!-- Sentiment Distribution -->
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header">
+                <i class="fas fa-chart-pie me-2"></i>Phân Phối Cảm Xúc
+            </div>
+            <div class="card-body">
+                {% if sentiment_distribution %}
+                    <div class="row text-center mb-3">
+                        <div class="col-4">
+                            <div class="sentiment-pill bg-sentiment-positive">
+                                Tích cực: {{ sentiment_distribution.positive }}%
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="sentiment-pill bg-sentiment-neutral">
+                                Trung lập: {{ sentiment_distribution.neutral }}%
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="sentiment-pill bg-sentiment-negative">
+                                Tiêu cực: {{ sentiment_distribution.negative }}%
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="progress mb-4">
+                        <div class="progress-bar bg-sentiment-positive" role="progressbar" 
+                             style="width: {{ sentiment_distribution.positive }}%" 
+                             aria-valuenow="{{ sentiment_distribution.positive }}" aria-valuemin="0" aria-valuemax="100">
+                        </div>
+                        <div class="progress-bar bg-sentiment-neutral" role="progressbar" 
+                             style="width: {{ sentiment_distribution.neutral }}%" 
+                             aria-valuenow="{{ sentiment_distribution.neutral }}" aria-valuemin="0" aria-valuemax="100">
+                        </div>
+                        <div class="progress-bar bg-sentiment-negative" role="progressbar" 
+                             style="width: {{ sentiment_distribution.negative }}%" 
+                             aria-valuenow="{{ sentiment_distribution.negative }}" aria-valuemin="0" aria-valuemax="100">
+                        </div>
+                    </div>
+                    
+                    <p class="text-center">
+                        Dựa trên <strong>{{ sentiment_distribution.total_count }}</strong> bài báo
+                    </p>
+                    
+                    {% if sentiment_distribution.by_source %}
+                        <h6 class="mt-4 mb-3">Phân Phối Theo Nguồn:</h6>
+                        {% for source, stats in sentiment_distribution.by_source.items() %}
+                            <div class="source-stat">
+                                <div class="source-name">
+                                    {% if source == 'cafef' %}
+                                        <i class="fas fa-globe me-1 text-primary"></i>CafeF
+                                    {% elif source == 'vnexpress' %}
+                                        <i class="fas fa-globe me-1 text-success"></i>VnExpress
+                                    {% elif source == 'tinnhanhchungkhoan' %}
+                                        <i class="fas fa-globe me-1 text-danger"></i>TNCK
+                                    {% else %}
+                                        <i class="fas fa-globe me-1"></i>{{ source }}
+                                    {% endif %}
+                                </div>
+                                <div class="source-count">{{ stats.total }} bài</div>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                {% else %}
+                    <div class="alert alert-info">
+                        Không có đủ dữ liệu để hiển thị phân phối cảm xúc.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Related Tickers -->
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header">
+                <i class="fas fa-link me-2"></i>Mã Cổ Phiếu Liên Quan
+            </div>
+            <div class="card-body">
+                {% if related_tickers %}
+                    <div class="row">
+                        {% for related in related_tickers %}
+                            <div class="col-md-6 mb-3">
+                                <div class="card h-100">
+                                    <div class="card-body text-center">
+                                        <h5 class="card-title">{{ related.ticker }}</h5>
+                                        <p class="card-text">
+                                            <span class="badge bg-secondary">{{ related.count }} bài báo chung</span>
+                                        </p>
+                                        <a href="{{ url_for('analyze', ticker=related.ticker) }}" class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-chart-bar me-1"></i>Phân Tích
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="alert alert-info">
+                        Không tìm thấy mã cổ phiếu liên quan.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Daily Sentiment Analysis -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-calendar-alt me-2"></i>Phân Tích Cảm Xúc Hàng Ngày
+            </div>
+            <div class="card-body">
+                {% if daily_sentiment %}
+                    <div class="row">
+                        {% for day in daily_sentiment %}
+                            <div class="col-md-6">
+                                <div class="daily-summary">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <div class="summary-date">{{ day.date }}</div>
+                                        <div class="sentiment-pill bg-sentiment-{{ day.sentiment_class }}">
+                                            {{ day.overall_sentiment }}
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="summary-text">
+                                        {{ day.summary }}
+                                    </div>
+                                    
+                                    <div class="d-flex justify-content-between small text-muted mb-2">
+                                        <div>
+                                            <i class="fas fa-thumbs-up sentiment-positive"></i> {{ day.positive_count }}
+                                            <i class="fas fa-minus-circle ms-2 sentiment-neutral"></i> {{ day.neutral_count }}
+                                            <i class="fas fa-thumbs-down ms-2 sentiment-negative"></i> {{ day.negative_count }}
+                                        </div>
+                                        <div>
+                                            Tổng: {{ day.total_count }} bài
+                                        </div>
+                                    </div>
+                                    
+                                    {% if day.top_news %}
+                                        <div class="mt-2">
+                                            <strong>Tin nổi bật:</strong>
+                                            <ul class="list-unstyled mt-1">
+                                                {% for news in day.top_news %}
+                                                    <li class="mb-3">
+                                                        <a href="{{ news.url }}" target="_blank" class="sentiment-{{ news.sentiment }}">
+                                                            <i class="fas fa-{% if news.sentiment == 'positive' %}arrow-up{% elif news.sentiment == 'negative' %}arrow-down{% else %}minus{% endif %} me-1"></i>
+                                                            {{ news.title }}
+                                                        </a>
+                                                        {% if news.insight %}
+                                                            <div class="insight-box mt-1 p-2">
+                                                                <i class="fas fa-lightbulb text-warning me-1"></i> <strong>Nhận định:</strong> {{ news.insight }}
+                                                            </div>
+                                                        {% endif %}
+                                                        {% if news.recommendation %}
+                                                            <div class="recommendation-box mt-1 p-2">
+                                                                <i class="fas fa-chart-line text-info me-1"></i> <strong>Khuyến nghị:</strong> {{ news.recommendation }}
+                                                            </div>
+                                                        {% endif %}
+                                                    </li>
+                                                {% endfor %}
+                                            </ul>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% elif daily_error %}
+                    <div class="alert alert-warning">
+                        {{ daily_error }}
+                    </div>
+                {% else %}
+                    <div class="loader"></div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- News Results -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-newspaper me-2"></i>Tin Tức Gần Đây
+            </div>
+            <div class="card-body p-0">
+                {% if news_results %}
+                    <div class="list-group list-group-flush">
+                        {% for news in news_results %}
+                            <div class="list-group-item news-item">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div class="news-title">
+                                        <a href="{{ news.url }}" target="_blank" class="text-decoration-none">
+                                            {{ news.title }}
+                                        </a>
+                                    </div>
+                                    <span class="badge bg-sentiment-{{ news.sentiment }}">
+                                        {% if news.sentiment == 'positive' %}
+                                            <i class="fas fa-arrow-up me-1"></i>Tích cực
+                                        {% elif news.sentiment == 'negative' %}
+                                            <i class="fas fa-arrow-down me-1"></i>Tiêu cực
+                                        {% else %}
+                                            <i class="fas fa-minus me-1"></i>Trung lập
+                                        {% endif %}
+                                    </span>
+                                </div>
+                                <div class="news-date">
+                                    <i class="far fa-calendar-alt me-1"></i>{{ news.date }}
+                                    {% if news.source %}
+                                        <span class="ms-2">
+                                            <i class="fas fa-globe me-1"></i>
+                                            {% if news.source == 'cafef' %}
+                                                CafeF
+                                            {% elif news.source == 'vnexpress' %}
+                                                VnExpress
+                                            {% elif news.source == 'tinnhanhchungkhoan' %}
+                                                Tin Nhanh Chứng Khoán
+                                            {% else %}
+                                                {{ news.source }}
+                                            {% endif %}
+                                        </span>
+                                    {% endif %}
+                                </div>
+                                <div class="news-summary">
+                                    {{ news.summary }}
+                                </div>
+                                
+                                {% if news.insight %}
+                                    <div class="insight-box mt-2 mb-2 p-3">
+                                        <div class="insight-header mb-1">
+                                            <i class="fas fa-lightbulb text-warning me-1"></i> <strong>Nhận định từ nội dung bài báo:</strong>
+                                        </div>
+                                        <div class="insight-content">
+                                            {{ news.insight }}
+                                        </div>
+                                    </div>
+                                {% endif %}
+                                
+                                {% if news.recommendation %}
+                                    <div class="recommendation-box mt-2 mb-2 p-3">
+                                        <div class="recommendation-header mb-1">
+                                            <i class="fas fa-chart-line text-info me-1"></i> <strong>Khuyến nghị đầu tư:</strong>
+                                        </div>
+                                        <div class="recommendation-content">
+                                            {{ news.recommendation }}
+                                        </div>
+                                    </div>
+                                {% endif %}
+                                
+                                {% if news.key_metrics %}
+                                    <div class="metrics-box mt-2 mb-2 p-3">
+                                        <div class="metrics-header mb-1">
+                                            <i class="fas fa-calculator text-primary me-1"></i> <strong>Chỉ số tài chính:</strong>
+                                        </div>
+                                        <div class="metrics-content">
+                                            {{ news.key_metrics|replace('\n', '<br>')|safe }}
+                                        </div>
+                                    </div>
+                                {% endif %}
+                                
+                                {% if news.tickers and news.tickers|length > 1 %}
+                                    <div class="mt-2">
+                                        {% for ticker_item in news.tickers %}
+                                            {% if ticker_item != ticker %}
+                                                <a href="{{ url_for('analyze', ticker=ticker_item) }}" class="ticker-badge">
+                                                    {{ ticker_item }}
+                                                </a>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="alert alert-info m-3">
+                        Không tìm thấy tin tức nào cho mã cổ phiếu này.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .insight-box {
+        background-color: #f8f9fa;
+        border-left: 4px solid #ffc107;
+        border-radius: 4px;
+        font-size: 0.95rem;
+    }
+    
+    .recommendation-box {
+        background-color: #f8f9fa;
+        border-left: 4px solid #17a2b8;
+        border-radius: 4px;
+        font-size: 0.95rem;
+    }
+    
+    .metrics-box {
+        background-color: #f8f9fa;
+        border-left: 4px solid #007bff;
+        border-radius: 4px;
+        font-size: 0.95rem;
+    }
+    
+    .insight-header, .recommendation-header, .metrics-header {
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+    
+    .insight-content, .recommendation-content, .metrics-content {
+        color: #212529;
+        line-height: 1.5;
+    }
+    
+    @media (max-width: 767.98px) {
+        .insight-box, .recommendation-box, .metrics-box {
+            padding: 10px !important;
+            font-size: 0.9rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Highlight active nav item
+        const currentPath = window.location.pathname;
+        const navLinks = document.querySelectorAll('.nav-link');
+        
+        navLinks.forEach(link => {
+            if (link.getAttribute('href') === currentPath) {
+                link.classList.add('active');
+                link.setAttribute('aria-current', 'page');
+            }
+        });
+        
+        // Add smooth scrolling
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                document.querySelector(this.getAttribute('href')).scrollIntoView({
+                    behavior: 'smooth'
+                });
+            });
+        });
+    });
+</script>
+{% endblock %}

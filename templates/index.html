@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+
+{% block title %}Fin Agent - Trang Chủ{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-fire me-2"></i>Mã Cổ Phiếu Xu Hướng
+            </div>
+            <div class="card-body">
+                {% if trending_tickers %}
+                    <div class="row">
+                        {% for ticker in trending_tickers %}
+                            <div class="col-md-4 col-sm-6 mb-3">
+                                <div class="card h-100">
+                                    <div class="card-body text-center">
+                                        <h5 class="card-title">{{ ticker.ticker }}</h5>
+                                        <p class="card-text">
+                                            <span class="badge bg-primary">{{ ticker.count }} bài báo</span>
+                                        </p>
+                                        <a href="{{ url_for('analyze', ticker=ticker.ticker) }}" class="btn btn-sm btn-primary">
+                                            <i class="fas fa-chart-bar me-1"></i>Phân Tích
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="alert alert-info">
+                        Không có dữ liệu xu hướng. Vui lòng thử lại sau.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card mt-4">
+            <div class="card-header">
+                <i class="fas fa-search me-2"></i>Tìm Kiếm Mã Cổ Phiếu
+            </div>
+            <div class="card-body">
+                <form action="/analyze" method="get" class="row g-3">
+                    <div class="col-md-8">
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-tag"></i></span>
+                            <input type="text" class="form-control" name="ticker" placeholder="Nhập mã cổ phiếu (VD: VNM, FPT, VIC)" required>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="fas fa-chart-line me-1"></i>Phân Tích
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-newspaper me-2"></i>Thống Kê Nguồn Tin
+            </div>
+            <div class="card-body">
+                {% if sources_stats %}
+                    <div class="list-group">
+                        {% for source, count in sources_stats.items() %}
+                            <div class="list-group-item d-flex justify-content-between align-items-center">
+                                <div>
+                                    {% if source == 'cafef' %}
+                                        <i class="fas fa-globe me-2 text-primary"></i>CafeF
+                                    {% elif source == 'vnexpress' %}
+                                        <i class="fas fa-globe me-2 text-success"></i>VnExpress
+                                    {% elif source == 'tinnhanhchungkhoan' %}
+                                        <i class="fas fa-globe me-2 text-danger"></i>Tin Nhanh Chứng Khoán
+                                    {% else %}
+                                        <i class="fas fa-globe me-2"></i>{{ source }}
+                                    {% endif %}
+                                </div>
+                                <span class="badge bg-primary rounded-pill">{{ count }} bài</span>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="alert alert-info">
+                        Không có dữ liệu thống kê nguồn tin. Vui lòng thử lại sau.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card mt-4">
+            <div class="card-header">
+                <i class="fas fa-info-circle me-2"></i>Giới Thiệu
+            </div>
+            <div class="card-body">
+                <h5 class="card-title">Phân Tích Cảm Xúc Cổ Phiếu</h5>
+                <p class="card-text">
+                    Hệ thống phân tích cảm xúc từ các bài báo về thị trường chứng khoán Việt Nam, giúp nhà đầu tư nắm bắt xu hướng và tâm lý thị trường.
+                </p>
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item">
+                        <i class="fas fa-check-circle text-success me-2"></i>Phân tích cảm xúc từ nhiều nguồn tin
+                    </li>
+                    <li class="list-group-item">
+                        <i class="fas fa-check-circle text-success me-2"></i>Biểu đồ trực quan hóa dữ liệu
+                    </li>
+                    <li class="list-group-item">
+                        <i class="fas fa-check-circle text-success me-2"></i>Tóm tắt tin tức hàng ngày
+                    </li>
+                    <li class="list-group-item">
+                        <i class="fas fa-check-circle text-success me-2"></i>Cập nhật dữ liệu liên tục
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-chart-pie me-2"></i>Hướng Dẫn Sử Dụng
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="text-center mb-3">
+                            <i class="fas fa-search fa-3x text-primary"></i>
+                        </div>
+                        <h5 class="text-center">1. Tìm Kiếm Mã Cổ Phiếu</h5>
+                        <p class="text-center">
+                            Nhập mã cổ phiếu bạn muốn phân tích vào ô tìm kiếm và nhấn nút "Phân Tích".
+                        </p>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="text-center mb-3">
+                            <i class="fas fa-chart-line fa-3x text-primary"></i>
+                        </div>
+                        <h5 class="text-center">2. Xem Kết Quả Phân Tích</h5>
+                        <p class="text-center">
+                            Xem biểu đồ cảm xúc, tóm tắt tin tức và phân phối cảm xúc theo thời gian.
+                        </p>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="text-center mb-3">
+                            <i class="fas fa-lightbulb fa-3x text-primary"></i>
+                        </div>
+                        <h5 class="text-center">3. Đưa Ra Quyết Định</h5>
+                        <p class="text-center">
+                            Sử dụng thông tin phân tích để hỗ trợ quyết định đầu tư của bạn.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Highlight active nav item
+        const currentPath = window.location.pathname;
+        const navLinks = document.querySelectorAll('.nav-link');
+        
+        navLinks.forEach(link => {
+            if (link.getAttribute('href') === currentPath) {
+                link.classList.add('active');
+                link.setAttribute('aria-current', 'page');
+            }
+        });
+    });
+</script>
+{% endblock %}
