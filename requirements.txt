@@ -1,0 +1,15 @@
+beautifulsoup4==4.13.3
+faiss-cpu==1.10.0
+langchain-google-vertexai==2.0.18
+pymongo==4.11.3
+pyparsing==3.2.3
+vnstock==3.2.3
+numpy==2.2.4
+python-dotenv==1.1.0
+flask
+matplotlib
+pandas
+seaborn
+markdown
+flask_caching
+reportlab

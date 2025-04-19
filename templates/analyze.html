@@ -1,0 +1,492 @@
+{% extends "base.html" %}
+
+{% block title %}Phân tích {{ ticker }} - Phân tích Cổ phiếu Việt Nam{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-3">
+        <div class="col-md-8">
+            <h1 class="mb-3">Phân tích cổ phiếu {{ ticker }}</h1>
+        </div>
+        <div class="col-md-4 text-end">
+            <form id="dateRangeForm" method="GET" action="/analyze">
+                <input type="hidden" name="ticker" value="{{ ticker }}">
+                <div class="input-group mb-2">
+                    <span class="input-group-text">Từ</span>
+                    <input type="date" class="form-control" name="start_date" value="{{ start_date }}" required>
+                    <span class="input-group-text">Đến</span>
+                    <input type="date" class="form-control" name="end_date" value="{{ end_date }}" required>
+                </div>
+                <div class="d-flex justify-content-between">
+                    <button type="submit" class="btn btn-primary">Cập nhật</button>
+                    <a href="/generate_report?ticker={{ ticker }}&start_date={{ start_date }}&end_date={{ end_date }}" class="btn btn-success" target="_blank">
+                        <i class="fas fa-file-pdf"></i> Xuất báo cáo PDF
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <ul class="nav nav-tabs mb-4" id="stockTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="overview-tab" data-bs-toggle="tab" data-bs-target="#overview" type="button" role="tab" aria-controls="overview" aria-selected="true">Tổng quan</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="charts-tab" data-bs-toggle="tab" data-bs-target="#charts" type="button" role="tab" aria-controls="charts" aria-selected="false">Biểu đồ kỹ thuật</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="sentiment-tab" data-bs-toggle="tab" data-bs-target="#sentiment" type="button" role="tab" aria-controls="sentiment" aria-selected="false">Phân tích cảm xúc</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="reports-tab" data-bs-toggle="tab" data-bs-target="#reports" type="button" role="tab" aria-controls="reports" aria-selected="false">Báo cáo</button>
+        </li>
+    </ul>
+
+    <div class="tab-content" id="stockTabsContent">
+        <!-- Overview Tab -->
+        <div class="tab-pane fade show active" id="overview" role="tabpanel" aria-labelledby="overview-tab">
+            <div class="row">
+                <div class="col-md-8">
+                    {% if stock_summary %}
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h2 class="h5 mb-0">Thông tin tổng quan</h2>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <p><strong>Giá hiện tại:</strong> {{ "{:,.2f}".format(stock_summary.latest_price) }}</p>
+                                    <p><strong>Thay đổi:</strong> 
+                                        <span class="{% if stock_summary.price_change >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                            {{ "{:+,.2f}".format(stock_summary.price_change) }} ({{ "{:+,.2f}".format(stock_summary.price_change_pct) }}%)
+                                        </span>
+                                    </p>
+                                    <p><strong>Giá cao nhất:</strong> {{ "{:,.2f}".format(stock_summary.highest_price) }}</p>
+                                    <p><strong>Giá thấp nhất:</strong> {{ "{:,.2f}".format(stock_summary.lowest_price) }}</p>
+                                </div>
+                                <div class="col-md-6">
+                                    <p><strong>Khối lượng trung bình:</strong> {{ "{:,.0f}".format(stock_summary.avg_volume) }}</p>
+                                    <p><strong>Xu hướng:</strong> {{ stock_summary.trend }}</p>
+                                    <p><strong>Độ biến động:</strong> {{ "{:.2f}".format(stock_summary.volatility) }}%</p>
+                                    <p><strong>Thời gian:</strong> {{ stock_summary.start_date }} đến {{ stock_summary.end_date }}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {% if volume_price_chart %}
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h2 class="h5 mb-0">Giá và khối lượng giao dịch</h2>
+                        </div>
+                        <div class="card-body">
+                            <img src="data:image/png;base64,{{ volume_price_chart }}" class="img-fluid" alt="Volume and Price Chart">
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <div class="col-md-4">
+                    {% if shareholders_chart %}
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h2 class="h5 mb-0">Cơ cấu cổ đông</h2>
+                        </div>
+                        <div class="card-body">
+                            <img src="data:image/png;base64,{{ shareholders_chart }}" class="img-fluid" alt="Shareholders Chart">
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {% if sentiment_distribution %}
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h2 class="h5 mb-0">Phân phối cảm xúc</h2>
+                        </div>
+                        <div class="card-body">
+                            <div class="progress mb-3" style="height: 30px;">
+                                <div class="progress-bar bg-success" role="progressbar" style="width: {{ sentiment_distribution.positive_pct }}%;" aria-valuenow="{{ sentiment_distribution.positive_pct }}" aria-valuemin="0" aria-valuemax="100">{{ sentiment_distribution.positive_pct }}%</div>
+                                <div class="progress-bar bg-warning" role="progressbar" style="width: {{ sentiment_distribution.neutral_pct }}%;" aria-valuenow="{{ sentiment_distribution.neutral_pct }}" aria-valuemin="0" aria-valuemax="100">{{ sentiment_distribution.neutral_pct }}%</div>
+                                <div class="progress-bar bg-danger" role="progressbar" style="width: {{ sentiment_distribution.negative_pct }}%;" aria-valuenow="{{ sentiment_distribution.negative_pct }}" aria-valuemin="0" aria-valuemax="100">{{ sentiment_distribution.negative_pct }}%</div>
+                            </div>
+                            <div class="d-flex justify-content-between small text-muted">
+                                <div><i class="fas fa-arrow-up text-success"></i> Tích cực: {{ sentiment_distribution.positive_pct }}%</div>
+                                <div><i class="fas fa-minus text-warning"></i> Trung lập: {{ sentiment_distribution.neutral_pct }}%</div>
+                                <div><i class="fas fa-arrow-down text-danger"></i> Tiêu cực: {{ sentiment_distribution.negative_pct }}%</div>
+                            </div>
+                            <div class="text-center mt-2 small text-muted">
+                                Tổng số tin: {{ sentiment_distribution.total_count }}
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {% if related_tickers %}
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h2 class="h5 mb-0">Mã cổ phiếu liên quan</h2>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="list-group list-group-flush">
+                                {% for related in related_tickers %}
+                                    <a href="/analyze?ticker={{ related.ticker }}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                                        {{ related.ticker }}
+                                        <span class="badge bg-primary rounded-pill">{{ related.count }}</span>
+                                    </a>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Tab -->
+        <div class="tab-pane fade" id="charts" role="tabpanel" aria-labelledby="charts-tab">
+            <div class="row">
+                <div class="col-md-6 mb-4">
+                    <div class="card h-100">
+                        <div class="card-header">
+                            <h2 class="h5 mb-0">Biểu đồ giá đóng cửa</h2>
+                        </div>
+                        <div class="card-body">
+                            {% if line_chart %}
+                                <img src="data:image/png;base64,{{ line_chart }}" class="img-fluid" alt="Line Chart">
+                            {% else %}
+                                <div class="alert alert-warning">Không có dữ liệu biểu đồ giá</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 mb-4">
+                    <div class="card h-100">
+                        <div class="card-header">
+                            <h2 class="h5 mb-0">Biểu đồ khối lượng giao dịch</h2>
+                        </div>
+                        <div class="card-body">
+                            {% if volume_chart %}
+                                <img src="data:image/png;base64,{{ volume_chart }}" class="img-fluid" alt="Volume Chart">
+                            {% else %}
+                                <div class="alert alert-warning">Không có dữ liệu biểu đồ khối lượng</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 mb-4">
+                    <div class="card h-100">
+                        <div class="card-header">
+                            <h2 class="h5 mb-0">Biểu đồ nến</h2>
+                        </div>
+                        <div class="card-body">
+                            {% if candlestick_chart %}
+                                <img src="data:image/png;base64,{{ candlestick_chart }}" class="img-fluid" alt="Candlestick Chart">
+                            {% else %}
+                                <div class="alert alert-warning">Không có dữ liệu biểu đồ nến</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 mb-4">
+                    <div class="card h-100">
+                        <div class="card-header">
+                            <h2 class="h5 mb-0">Biểu đồ lợi nhuận theo tháng</h2>
+                        </div>
+                        <div class="card-body">
+                            {% if returns_heatmap %}
+                                <img src="data:image/png;base64,{{ returns_heatmap }}" class="img-fluid" alt="Returns Heatmap">
+                            {% else %}
+                                <div class="alert alert-warning">Không có dữ liệu biểu đồ lợi nhuận</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sentiment Tab -->
+        <div class="tab-pane fade" id="sentiment" role="tabpanel" aria-labelledby="sentiment-tab">
+            <div class="row">
+                <div class="col-md-8">
+                    {% if chart_data %}
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h2 class="h5 mb-0">Biểu đồ phân tích cảm xúc theo thời gian</h2>
+                            </div>
+                            <div class="card-body">
+                                <img src="data:image/png;base64,{{ chart_data }}" class="img-fluid" alt="Sentiment Chart">
+                            </div>
+                        </div>
+                    {% endif %}
+                    
+                    {% if daily_sentiment %}
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h2 class="h5 mb-0">Tóm tắt phân tích cảm xúc hàng ngày</h2>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="list-group list-group-flush">
+                                    {% for day in daily_sentiment %}
+                                        <div class="list-group-item">
+                                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                                <h3 class="h6 mb-0">{{ day.date }}</h3>
+                                                <span class="badge bg-{{ day.sentiment_class }}">{{ day.overall_sentiment }}</span>
+                                            </div>
+                                            
+                                            <p>{{ day.summary|markdown|safe }}</p>
+                                            
+                                            <div class="d-flex small text-muted mb-2">
+                                                <div class="me-3">
+                                                    <i class="fas fa-arrow-up text-success"></i> {{ day.positive_count }}
+                                                </div>
+                                                <div class="me-3">
+                                                    <i class="fas fa-minus text-warning"></i> {{ day.neutral_count }}
+                                                </div>
+                                                <div>
+                                                    <i class="fas fa-arrow-down text-danger"></i> {{ day.negative_count }}
+                                                </div>
+                                            </div>
+                                            
+                                            {% if day.top_news %}
+                                                <div class="mt-2">
+                                                    {% for news in day.top_news %}
+                                                        <div class="mb-2 border-start ps-2 border-{{ news.sentiment }}">
+                                                            <a href="{{ news.url }}" target="_blank" class="text-decoration-none">{{ news.title }}</a>
+                                                            {% if news.insight %}
+                                                                <div class="small mt-1">{{ news.insight|markdown|safe }}</div>
+                                                            {% endif %}
+                                                            {% if news.recommendation %}
+                                                                <div class="small mt-1 fw-bold">{{ news.recommendation|markdown|safe }}</div>
+                                                            {% endif %}
+                                                        </div>
+                                                    {% endfor %}
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+                
+                <div class="col-md-4">
+                    {% if sentiment_distribution %}
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h2 class="h5 mb-0">Phân phối cảm xúc</h2>
+                            </div>
+                            <div class="card-body">
+                                <div class="progress mb-3" style="height: 30px;">
+                                    <div class="progress-bar bg-success" role="progressbar" style="width: {{ sentiment_distribution.positive_pct }}%;" aria-valuenow="{{ sentiment_distribution.positive_pct }}" aria-valuemin="0" aria-valuemax="100">{{ sentiment_distribution.positive_pct }}%</div>
+                                    <div class="progress-bar bg-warning" role="progressbar" style="width: {{ sentiment_distribution.neutral_pct }}%;" aria-valuenow="{{ sentiment_distribution.neutral_pct }}" aria-valuemin="0" aria-valuemax="100">{{ sentiment_distribution.neutral_pct }}%</div>
+                                    <div class="progress-bar bg-danger" role="progressbar" style="width: {{ sentiment_distribution.negative_pct }}%;" aria-valuenow="{{ sentiment_distribution.negative_pct }}" aria-valuemin="0" aria-valuemax="100">{{ sentiment_distribution.negative_pct }}%</div>
+                                </div>
+                                <div class="d-flex justify-content-between small text-muted">
+                                    <div><i class="fas fa-arrow-up text-success"></i> Tích cực: {{ sentiment_distribution.positive_pct }}%</div>
+                                    <div><i class="fas fa-minus text-warning"></i> Trung lập: {{ sentiment_distribution.neutral_pct }}%</div>
+                                    <div><i class="fas fa-arrow-down text-danger"></i> Tiêu cực: {{ sentiment_distribution.negative_pct }}%</div>
+                                </div>
+                                <div class="text-center mt-2 small text-muted">
+                                    Tổng số tin: {{ sentiment_distribution.total_count }}
+                                </div>
+                            </div>
+                        </div>
+                    {% endif %}
+                    
+                    {% if sources_stats %}
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h2 class="h5 mb-0">Thống kê nguồn tin</h2>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="list-group list-group-flush">
+                                    {% for source, count in sources_stats.items() %}
+                                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                                            {{ source }}
+                                            <span class="badge bg-secondary rounded-pill">{{ count }}</span>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Reports Tab -->
+        <div class="tab-pane fade" id="reports" role="tabpanel" aria-labelledby="reports-tab">
+            <div class="row">
+                <div class="col-md-12 mb-4">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h2 class="h5 mb-0">Báo cáo và tài liệu</h2>
+                            <a href="/generate_report?ticker={{ ticker }}&start_date={{ start_date }}&end_date={{ end_date }}" class="btn btn-success btn-sm" target="_blank">
+                                <i class="fas fa-file-pdf"></i> Xuất báo cáo PDF
+                            </a>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h3 class="h6">Tùy chọn báo cáo</h3>
+                                    <form id="reportOptionsForm" action="/generate_report" method="GET" target="_blank">
+                                        <input type="hidden" name="ticker" value="{{ ticker }}">
+                                        <input type="hidden" name="start_date" value="{{ start_date }}">
+                                        <input type="hidden" name="end_date" value="{{ end_date }}">
+                                        
+                                        <div class="form-check mb-2">
+                                            <input class="form-check-input" type="checkbox" name="include_plots" value="line" id="includeLine" checked>
+                                            <label class="form-check-label" for="includeLine">
+                                                Biểu đồ giá đóng cửa
+                                            </label>
+                                        </div>
+                                        <div class="form-check mb-2">
+                                            <input class="form-check-input" type="checkbox" name="include_plots" value="volume" id="includeVolume" checked>
+                                            <label class="form-check-label" for="includeVolume">
+                                                Biểu đồ khối lượng giao dịch
+                                            </label>
+                                        </div>
+                                        <div class="form-check mb-2">
+                                            <input class="form-check-input" type="checkbox" name="include_plots" value="candlestick" id="includeCandlestick" checked>
+                                            <label class="form-check-label" for="includeCandlestick">
+                                                Biểu đồ nến
+                                            </label>
+                                        </div>
+                                        <div class="form-check mb-2">
+                                            <input class="form-check-input" type="checkbox" name="include_plots" value="volume_price" id="includeVolumePrice" checked>
+                                            <label class="form-check-label" for="includeVolumePrice">
+                                                Biểu đồ giá và khối lượng
+                                            </label>
+                                        </div>
+                                        <div class="form-check mb-2">
+                                            <input class="form-check-input" type="checkbox" name="include_plots" value="shareholders" id="includeShareholders" checked>
+                                            <label class="form-check-label" for="includeShareholders">
+                                                Biểu đồ cổ đông
+                                            </label>
+                                        </div>
+                                        <div class="form-check mb-2">
+                                            <input class="form-check-input" type="checkbox" name="include_plots" value="heatmap" id="includeHeatmap" checked>
+                                            <label class="form-check-label" for="includeHeatmap">
+                                                Biểu đồ lợi nhuận theo tháng
+                                            </label>
+                                        </div>
+                                        <div class="form-check mb-3">
+                                            <input class="form-check-input" type="checkbox" name="include_sentiment" value="true" id="includeSentiment" checked>
+                                            <label class="form-check-label" for="includeSentiment">
+                                                Phân tích cảm xúc
+                                            </label>
+                                        </div>
+                                        
+                                        <button type="submit" class="btn btn-primary">Tạo báo cáo tùy chỉnh</button>
+                                    </form>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <h3 class="h6">Báo cáo có sẵn</h3>
+                                    {% if internal_reports %}
+                                        <div class="list-group">
+                                            {% for report in internal_reports %}
+                                                <a href="{{ report.url }}" target="_blank" class="list-group-item list-group-item-action">
+                                                    <div class="d-flex w-100 justify-content-between">
+                                                        <h5 class="mb-1">{{ report.title }}</h5>
+                                                        <small>{{ report.date }}</small>
+                                                    </div>
+                                                    <p class="mb-1">{{ report.description }}</p>
+                                                    <small>{{ report.source }}</small>
+                                                </a>
+                                            {% endfor %}
+                                        </div>
+                                    {% else %}
+                                        <div class="alert alert-info">Không tìm thấy báo cáo nội bộ cho mã {{ ticker }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-md-12">
+            {% if news_results %}
+                <div class="card mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h2 class="h5 mb-0">Tin tức gần đây</h2>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="list-group list-group-flush">
+                            {% for news in news_results %}
+                                <div class="list-group-item">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <h3 class="h6 mb-0">
+                                            <a href="{{ news.url }}" target="_blank" class="text-decoration-none">{{ news.title }}</a>
+                                        </h3>
+                                        <span class="badge bg-{{ news.sentiment }}">{{ news.sentiment }}</span>
+                                    </div>
+                                    <p class="small text-muted mb-2">{{ news.date }} | {{ news.source }}</p>
+                                    <p class="mb-2">{{ news.summary }}</p>
+                                    
+                                    {% if news.insight %}
+                                        <div class="card mb-3 border-0 bg-light">
+                                            <div class="card-body py-2">
+                                                <h4 class="h6 mb-2"><strong>Nhận định từ nội dung bài báo:</strong></h4>
+                                                <p class="mb-0">{{ news.insight|markdown|safe }}</p>
+                                            </div>
+                                        </div>
+                                    {% endif %}
+                                    
+                                    {% if news.recommendation %}
+                                        <div class="card mb-3 border-0 bg-light">
+                                            <div class="card-body py-2">
+                                                <h4 class="h6 mb-2"><strong>Khuyến nghị đầu tư:</strong></h4>
+                                                <p class="mb-0">{{ news.recommendation|markdown|safe }}</p>
+                                            </div>
+                                        </div>
+                                    {% endif %}
+                                    
+                                    {% if news.key_metrics %}
+                                        <div class="card mb-3 border-0 bg-light">
+                                            <div class="card-body py-2">
+                                                <h4 class="h6 mb-2"><strong>Chỉ số tài chính:</strong></h4>
+                                                <p class="mb-0">{{ news.key_metrics|markdown|safe }}</p>
+                                            </div>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Add client-side Markdown processing using marked.js
+    if (typeof marked !== 'undefined') {
+        document.querySelectorAll('.markdown-content').forEach(function(element) {
+            element.innerHTML = marked.parse(element.textContent);
+        });
+    }
+    
+    // Set default dates if not provided
+    if (!document.querySelector('input[name="start_date"]').value) {
+        const today = new Date();
+        const oneMonthAgo = new Date();
+        oneMonthAgo.setMonth(today.getMonth() - 1);
+        
+        document.querySelector('input[name="end_date"]').value = today.toISOString().split('T')[0];
+        document.querySelector('input[name="start_date"]').value = oneMonthAgo.toISOString().split('T')[0];
+    }
+});
+</script>
+{% endblock %}
